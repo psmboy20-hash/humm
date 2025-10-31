@@ -4,9 +4,15 @@ FastAPI 서버 - 이메일 파싱, OCR, 이미지 처리 워커
 """
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, HttpUrl
 from typing import Optional, List
 import logging
+import sys
+import os
+
+# 상위 디렉토리를 path에 추가
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # 로깅 설정
 logging.basicConfig(level=logging.INFO)
@@ -59,6 +65,15 @@ class OCRResponse(BaseModel):
     text: str
     confidence: float
     extracted_fields: Optional[dict] = None
+
+class RemoveBackgroundRequest(BaseModel):
+    image_url: HttpUrl
+
+class RemoveBackgroundResponse(BaseModel):
+    success: bool
+    silhouette_url: Optional[str] = None
+    thumbnail_url: Optional[str] = None
+    error: Optional[str] = None
 
 # ============================================
 # 헬스체크
@@ -199,6 +214,58 @@ async def process_image(file: UploadFile = File(...)):
     except Exception as e:
         logger.error(f"Image processing error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+
+# ============================================
+# 배경 제거 (누끼)
+# ============================================
+
+@app.post("/api/remove-background", response_model=RemoveBackgroundResponse)
+async def remove_background_endpoint(request: RemoveBackgroundRequest):
+    """
+    배경 제거 (누끼 PNG 생성)
+    - rembg 사용
+    - 투명 배경 PNG 반환
+    """
+    try:
+        logger.info(f"Removing background from: {request.image_url}")
+        
+        # rembg로 실제 배경 제거
+        from background_removal.remove_bg import process_clothing_image
+        result = await process_clothing_image(str(request.image_url))
+        
+        if not result["success"]:
+            return RemoveBackgroundResponse(
+                success=False,
+                error=result.get("error", "Unknown error")
+            )
+        
+        # 실제로는 S3에 업로드하고 URL 반환
+        # 지금은 base64로 인코딩해서 반환 (데모용)
+        import base64
+        
+        silhouette_bytes = result["silhouette"].getvalue()
+        thumbnail_bytes = result["thumbnail"].getvalue()
+        
+        silhouette_b64 = base64.b64encode(silhouette_bytes).decode('utf-8')
+        thumbnail_b64 = base64.b64encode(thumbnail_bytes).decode('utf-8')
+        
+        # Data URL 형식으로 반환
+        silhouette_url = f"data:image/png;base64,{silhouette_b64}"
+        thumbnail_url = f"data:image/png;base64,{thumbnail_b64}"
+        
+        logger.info(f"Background removal successful. Size: {result['size']}")
+        
+        return RemoveBackgroundResponse(
+            success=True,
+            silhouette_url=silhouette_url,
+            thumbnail_url=thumbnail_url
+        )
+    except Exception as e:
+        logger.error(f"Background removal error: {str(e)}")
+        return RemoveBackgroundResponse(
+            success=False,
+            error=str(e)
+        )
 
 if __name__ == "__main__":
     import uvicorn
