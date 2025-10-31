@@ -1,0 +1,286 @@
+// Virtual Closet Database Schema
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [pgvector(map: "vector")]
+}
+
+// ============================================
+// 사용자 관리
+// ============================================
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  avatar    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // 프로필 정보
+  profile UserProfile?
+
+  // 관계
+  items           ClothingItem[]
+  outfits         Outfit[]
+  recommendations Recommendation[]
+  emailConsents   EmailConsent[]
+
+  @@map("users")
+}
+
+model UserProfile {
+  id     String  @id @default(cuid())
+  userId String  @unique
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // 체형 정보
+  bodyType    String? // SLIM, REGULAR, ATHLETIC, PLUS_SIZE
+  height      Int? // cm
+  weight      Int? // kg
+  shoeSize    String?
+  preferences Json? // 선호 스타일, 색상 등
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("user_profiles")
+}
+
+// 이메일 동의 관리 (GDPR/개인정보보호)
+model EmailConsent {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  provider      String // GMAIL, NAVER
+  email         String
+  consentedAt   DateTime @default(now())
+  revokedAt     DateTime?
+  accessToken   String? // 암호화 저장 필요
+  refreshToken  String? // 암호화 저장 필요
+  expiresAt     DateTime?
+  retentionDays Int      @default(365) // 보관 기간
+
+  @@unique([userId, provider, email])
+  @@map("email_consents")
+}
+
+// ============================================
+// 옷장 아이템 관리
+// ============================================
+
+enum ItemCategory {
+  TOP // 상의
+  BOTTOM // 하의
+  OUTER // 아우터
+  DRESS // 원피스
+  SHOES // 신발
+  BAG // 가방
+  ACCESSORY // 악세서리
+}
+
+enum ItemSeason {
+  SPRING
+  SUMMER
+  FALL
+  WINTER
+  ALL_SEASON
+}
+
+model ClothingItem {
+  id     String       @id @default(cuid())
+  userId String
+  user   User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // 기본 정보
+  name        String
+  category    ItemCategory
+  brand       String?
+  size        String?
+  color       String?
+  season      ItemSeason?
+  purchaseDate DateTime?
+  price       Decimal?     @db.Decimal(10, 2)
+
+  // 이미지
+  imageUrl        String? // 원본 이미지
+  thumbnailUrl    String? // 썸네일
+  silhouetteUrl   String? // 정면 누끼 이미지 (코디용)
+  
+  // 메타데이터
+  productUrl      String? // 구매처 링크
+  tags            String[] // 사용자 태그
+  notes           String?  @db.Text
+  
+  // 추가 정보
+  metadata        Json? // 유연한 추가 데이터 (OCR 결과, 파싱 데이터 등)
+  
+  // 이미지 해시 (중복 감지)
+  imageHash       String?
+  
+  // 벡터 임베딩 (향후 유사도 검색)
+  // embedding       Unsupported("vector(512)")?
+
+  // 상태
+  isArchived      Boolean  @default(false)
+  wearCount       Int      @default(0)
+  lastWornAt      DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // 관계
+  outfitItems OutfitItem[]
+  source      ItemSource?
+
+  @@index([userId, category])
+  @@index([userId, isArchived])
+  @@index([imageHash])
+  @@map("clothing_items")
+}
+
+// 아이템 입력 소스 추적
+enum SourceType {
+  MANUAL // 수동 입력
+  EMAIL // 이메일 파싱
+  SHARED_URL // 공유 URL
+  SCREENSHOT // 스크린샷 OCR
+}
+
+model ItemSource {
+  id   String     @id @default(cuid())
+  itemId String   @unique
+  item   ClothingItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  sourceType  SourceType
+  rawData     Json? // 원본 파싱 데이터
+  confidence  Float? // 파싱 신뢰도
+  parsedAt    DateTime @default(now())
+
+  @@map("item_sources")
+}
+
+// ============================================
+// 코디 (Outfit) 관리
+// ============================================
+
+model Outfit {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  name        String
+  description String?  @db.Text
+  occasion    String? // 상황/TPO
+  season      ItemSeason?
+  
+  // 이미지 (캔버스 렌더링 결과)
+  imageUrl    String?
+  thumbnailUrl String?
+
+  // 메타데이터
+  weather     Json? // 날씨 정보 (온도, 강수 등)
+  tags        String[]
+  
+  isPublic    Boolean  @default(false)
+  viewCount   Int      @default(0)
+  likeCount   Int      @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // 관계
+  items OutfitItem[]
+
+  @@index([userId, isPublic])
+  @@map("outfits")
+}
+
+// 코디에 포함된 아이템 (레이어 순서)
+model OutfitItem {
+  id       String @id @default(cuid())
+  outfitId String
+  outfit   Outfit @relation(fields: [outfitId], references: [id], onDelete: Cascade)
+
+  itemId String?
+  item   ClothingItem? @relation(fields: [itemId], references: [id], onDelete: SetNull)
+
+  // 캔버스 내 위치/변형
+  layer    Int // 레이어 순서 (0: 최하단)
+  position Json // {x, y, scale, rotation}
+
+  // 추천 아이템 (본인 옷장에 없는 경우)
+  isRecommended Boolean @default(false)
+  recommendUrl  String?
+
+  createdAt DateTime @default(now())
+
+  @@unique([outfitId, layer])
+  @@map("outfit_items")
+}
+
+// ============================================
+// 추천 시스템
+// ============================================
+
+model Recommendation {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // 추천 컨텍스트
+  date        DateTime // 추천 대상 날짜
+  occasion    String? // 상황
+  weather     Json // 날씨 정보
+  
+  // 추천 결과 (3안)
+  options     Json // [{outfitId?, items: [], score: number}]
+  
+  // 사용자 피드백
+  selectedIndex Int? // 선택한 추천 (0-2)
+  feedback      String? // LIKE, DISLIKE, SKIP
+  
+  createdAt DateTime @default(now())
+
+  @@index([userId, date])
+  @@map("recommendations")
+}
+
+// ============================================
+// 인플루언서 & 소셜 (Phase 2)
+// ============================================
+
+model InfluencerCloset {
+  id            String   @id @default(cuid())
+  userId        String // 인플루언서 User ID
+  name          String
+  description   String?  @db.Text
+  isPublic      Boolean  @default(true)
+  followerCount Int      @default(0)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("influencer_closets")
+}
+
+// ============================================
+// 분석 & 로그
+// ============================================
+
+model ActivityLog {
+  id        String   @id @default(cuid())
+  userId    String
+  action    String // VIEW_ITEM, CREATE_OUTFIT, etc.
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@map("activity_logs")
+}
