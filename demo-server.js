@@ -191,12 +191,16 @@ async function startServer() {
   // GraphQL 엔드포인트
   app.use('/graphql', expressMiddleware(server));
   
+  // 정적 파일 (테스트 페이지)
+  app.use(express.static('.'));
+  
   // REST 엔드포인트 (추가)
-  app.get('/', (req, res) => {
+  app.get('/api', (req, res) => {
     res.json({
       message: '🎉 Virtual Closet API - 데모 서버',
       endpoints: {
         graphql: '/graphql',
+        testPage: '/test-page.html',
         rest: {
           items: '/api/items',
           health: '/health',
