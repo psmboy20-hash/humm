@@ -10,6 +10,7 @@ import { UsersModule } from './users/users.module';
 import { ItemsModule } from './items/items.module';
 import { OutfitsModule } from './outfits/outfits.module';
 import { RecommendationsModule } from './recommendations/recommendations.module';
+import { InboxModule } from './inbox/inbox.module';
 import { PrismaModule } from './common/prisma/prisma.module';
 
 @Module({
@@ -42,6 +43,7 @@ import { PrismaModule } from './common/prisma/prisma.module';
     AuthModule,
     UsersModule,
     ItemsModule,
+    InboxModule,
     OutfitsModule,
     RecommendationsModule,
   ],
