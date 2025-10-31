@@ -1,13 +1,11 @@
 // Virtual Closet Database Schema
 generator client {
-  provider        = "prisma-client-js"
-  previewFeatures = ["postgresqlExtensions"]
+  provider = "prisma-client-js"
 }
 
 datasource db {
-  provider   = "postgresql"
-  url        = env("DATABASE_URL")
-  extensions = [pgvector(map: "vector")]
+  provider = "sqlite"
+  url      = "file:./dev.db"
 }
 
 // ============================================
