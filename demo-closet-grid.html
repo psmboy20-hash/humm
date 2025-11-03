@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Virtual Closet - 옷장 그리드 데모</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background-color: #F9FAFB;
+            padding: 0;
+        }
+
+        .header {
+            background-color: #FFFFFF;
+            padding: 16px 20px;
+            border-bottom: 1px solid #F3F4F6;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header h1 {
+            font-size: 28px;
+            font-weight: bold;
+            color: #111827;
+            margin-bottom: 4px;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 12px;
+            position: absolute;
+            right: 20px;
+            top: 16px;
+        }
+
+        .icon-button {
+            width: 40px;
+            height: 40px;
+            border-radius: 20px;
+            background-color: #F9FAFB;
+            border: none;
+            cursor: pointer;
+            font-size: 20px;
+        }
+
+        .filter-container {
+            background-color: #FFFFFF;
+            padding: 12px 16px;
+            border-bottom: 1px solid #F3F4F6;
+            overflow-x: auto;
+            white-space: nowrap;
+        }
+
+        .filter-container::-webkit-scrollbar {
+            display: none;
+        }
+
+        .filter-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 16px;
+            border-radius: 20px;
+            background-color: #F3F4F6;
+            color: #6B7280;
+            font-size: 14px;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+            margin-right: 8px;
+            transition: all 0.2s;
+        }
+
+        .filter-chip.active {
+            background-color: #5C6BFF;
+            color: #FFFFFF;
+        }
+
+        .stats-card {
+            background-color: #FFFFFF;
+            margin: 16px 16px 12px 16px;
+            padding: 16px;
+            border-radius: 16px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+            display: flex;
+            justify-content: space-around;
+        }
+
+        .stat-item {
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 24px;
+            font-weight: bold;
+            color: #5C6BFF;
+            margin-bottom: 4px;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #6B7280;
+        }
+
+        .grid-container {
+            padding: 8px;
+            display: grid;
+            gap: 8px;
+        }
+
+        /* Responsive grid */
+        @media (max-width: 360px) {
+            .grid-container {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (min-width: 361px) and (max-width: 430px) {
+            .grid-container {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+
+        @media (min-width: 431px) {
+            .grid-container {
+                grid-template-columns: repeat(4, 1fr);
+            }
+        }
+
+        .item-card {
+            background-color: #FFFFFF;
+            border-radius: 16px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+            overflow: hidden;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            position: relative;
+        }
+
+        .item-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .image-container {
+            background-color: #F6F7F9;
+            aspect-ratio: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 8px;
+            position: relative;
+        }
+
+        .item-image {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        .popular-badge {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            width: 24px;
+            height: 24px;
+            border-radius: 12px;
+            background-color: #FFF5F5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 14px;
+        }
+
+        .item-meta {
+            padding: 8px;
+            background-color: #FFFFFF;
+        }
+
+        .brand-text {
+            font-size: 13px;
+            font-weight: 600;
+            color: #111827;
+            margin-bottom: 2px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .size-text {
+            font-size: 11px;
+            color: #9CA3AF;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #6B7280;
+        }
+
+        .spinner {
+            border: 3px solid #F3F4F6;
+            border-top: 3px solid #5C6BFF;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 12px auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .fab {
+            position: fixed;
+            right: 20px;
+            bottom: 20px;
+            width: 56px;
+            height: 56px;
+            border-radius: 28px;
+            background-color: #5C6BFF;
+            color: white;
+            font-size: 28px;
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 4px 8px rgba(92, 107, 255, 0.3);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: transform 0.2s;
+        }
+
+        .fab:hover {
+            transform: scale(1.1);
+        }
+
+        .api-info {
+            background-color: #EEF2FF;
+            padding: 12px;
+            margin: 16px;
+            border-radius: 12px;
+            font-size: 13px;
+            color: #5C6BFF;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <div class="header">
+        <h1>내 옷장</h1>
+        <div class="header-actions">
+            <button class="icon-button">🔍</button>
+            <button class="icon-button">⚙️</button>
+        </div>
+    </div>
+
+    <!-- Category Filter -->
+    <div class="filter-container" id="filterContainer">
+        <button class="filter-chip active" data-category="ALL">
+            📱 전체
+        </button>
+        <button class="filter-chip" data-category="TOP">
+            👕 상의
+        </button>
+        <button class="filter-chip" data-category="BOTTOM">
+            👖 하의
+        </button>
+        <button class="filter-chip" data-category="OUTER">
+            🧥 아우터
+        </button>
+        <button class="filter-chip" data-category="SHOES">
+            👟 신발
+        </button>
+    </div>
+
+    <!-- API Connection Info -->
+    <div class="api-info">
+        <span>🔵</span>
+        <span id="apiStatus">API 연결 중...</span>
+    </div>
+
+    <!-- Statistics Card -->
+    <div class="stats-card" id="statsCard">
+        <div class="stat-item">
+            <div class="stat-number" id="totalItems">-</div>
+            <div class="stat-label">아이템</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-number" id="totalCategories">-</div>
+            <div class="stat-label">카테고리</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-number" id="totalWears">-</div>
+            <div class="stat-label">총 착용</div>
+        </div>
+    </div>
+
+    <!-- Grid Container -->
+    <div class="grid-container" id="gridContainer">
+        <div class="loading">
+            <div class="spinner"></div>
+            <div>옷장 불러오는 중...</div>
+        </div>
+    </div>
+
+    <!-- Floating Action Button -->
+    <button class="fab" onclick="window.location.href='#inbox'">+</button>
+
+    <script>
+        const API_URL = 'https://4000-ie9wpiu3cp58a236iuzwi-82b888ba.sandbox.novita.ai/graphql';
+        let allItems = [];
+        let currentCategory = 'ALL';
+
+        // GraphQL query
+        const GET_ITEMS_QUERY = `
+            query {
+                items {
+                    items {
+                        id
+                        name
+                        category
+                        brand
+                        price
+                        imageUrl
+                        size
+                        color
+                        wearCount
+                        tags
+                    }
+                    total
+                }
+            }
+        `;
+
+        // Fetch items from API
+        async function fetchItems() {
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        query: GET_ITEMS_QUERY
+                    })
+                });
+
+                const result = await response.json();
+                
+                if (result.errors) {
+                    throw new Error(result.errors[0].message);
+                }
+
+                allItems = result.data.items.items;
+                updateStats();
+                renderItems();
+                
+                document.getElementById('apiStatus').textContent = 
+                    `✅ API 연결 완료 (${allItems.length}개 아이템)`;
+            } catch (error) {
+                console.error('Failed to fetch items:', error);
+                document.getElementById('gridContainer').innerHTML = `
+                    <div class="loading">
+                        <div style="font-size: 48px; margin-bottom: 16px;">⚠️</div>
+                        <div style="color: #EF4444;">API 연결 실패</div>
+                        <div style="font-size: 12px; margin-top: 8px;">${error.message}</div>
+                    </div>
+                `;
+                document.getElementById('apiStatus').textContent = '❌ API 연결 실패';
+            }
+        }
+
+        // Update statistics
+        function updateStats() {
+            const filtered = currentCategory === 'ALL' 
+                ? allItems 
+                : allItems.filter(item => item.category === currentCategory);
+            
+            const categories = new Set(allItems.map(item => item.category));
+            const totalWears = allItems.reduce((sum, item) => sum + item.wearCount, 0);
+
+            document.getElementById('totalItems').textContent = filtered.length;
+            document.getElementById('totalCategories').textContent = categories.size;
+            document.getElementById('totalWears').textContent = totalWears;
+        }
+
+        // Render items grid
+        function renderItems() {
+            const filtered = currentCategory === 'ALL' 
+                ? allItems 
+                : allItems.filter(item => item.category === currentCategory);
+
+            if (filtered.length === 0) {
+                document.getElementById('gridContainer').innerHTML = `
+                    <div class="loading">
+                        <div style="font-size: 48px; margin-bottom: 16px;">👔</div>
+                        <div style="font-weight: bold; margin-bottom: 8px;">옷장이 비어있습니다</div>
+                        <div style="font-size: 12px;">쇼핑몰에서 상품을 공유하여 자동으로 추가하세요</div>
+                    </div>
+                `;
+                return;
+            }
+
+            const html = filtered.map(item => `
+                <div class="item-card" onclick="alert('Item: ${item.name}')">
+                    <div class="image-container">
+                        ${item.imageUrl 
+                            ? `<img src="${item.imageUrl}" alt="${item.name}" class="item-image" />` 
+                            : '<div style="font-size: 48px;">👕</div>'}
+                        ${item.wearCount >= 5 ? '<div class="popular-badge">🔥</div>' : ''}
+                    </div>
+                    <div class="item-meta">
+                        <div class="brand-text">${item.brand || '브랜드 미상'}</div>
+                        <div class="size-text">${item.size || 'Free'} · ${item.color || 'Color'}</div>
+                    </div>
+                </div>
+            `).join('');
+
+            document.getElementById('gridContainer').innerHTML = html;
+        }
+
+        // Category filter
+        document.getElementById('filterContainer').addEventListener('click', (e) => {
+            if (e.target.classList.contains('filter-chip')) {
+                // Update active state
+                document.querySelectorAll('.filter-chip').forEach(chip => {
+                    chip.classList.remove('active');
+                });
+                e.target.classList.add('active');
+
+                // Update filter
+                currentCategory = e.target.dataset.category;
+                updateStats();
+                renderItems();
+            }
+        });
+
+        // Initialize
+        fetchItems();
+
+        // Refresh every 30 seconds
+        setInterval(fetchItems, 30000);
+    </script>
+</body>
+</html>

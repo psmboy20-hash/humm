@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>배경 제거 테스트 - Virtual Closet</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            padding: 30px;
+            border-radius: 20px;
+            margin-bottom: 30px;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        h1 {
+            color: #5C6BFF;
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            color: #6B7280;
+            font-size: 16px;
+        }
+
+        .input-section {
+            background: white;
+            padding: 30px;
+            border-radius: 20px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 10px;
+            font-weight: 600;
+            color: #111827;
+        }
+
+        input[type="url"] {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #E5E7EB;
+            border-radius: 12px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        input[type="url"]:focus {
+            outline: none;
+            border-color: #5C6BFF;
+        }
+
+        .sample-images {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .sample-card {
+            background: #F9FAFB;
+            padding: 10px;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s;
+            border: 2px solid transparent;
+        }
+
+        .sample-card:hover {
+            border-color: #5C6BFF;
+            transform: translateY(-2px);
+        }
+
+        .sample-card img {
+            width: 100%;
+            height: 120px;
+            object-fit: cover;
+            border-radius: 8px;
+            margin-bottom: 8px;
+        }
+
+        .sample-card .label {
+            font-size: 12px;
+            text-align: center;
+            color: #6B7280;
+        }
+
+        .process-btn {
+            width: 100%;
+            padding: 18px;
+            background: linear-gradient(135deg, #5C6BFF 0%, #7C3AED 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 4px 12px rgba(92, 107, 255, 0.4);
+        }
+
+        .process-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(92, 107, 255, 0.6);
+        }
+
+        .process-btn:disabled {
+            background: #9CA3AF;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .results-section {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        .result-card {
+            background: white;
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        .result-card h2 {
+            color: #111827;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .result-image {
+            width: 100%;
+            border-radius: 12px;
+            margin-bottom: 15px;
+        }
+
+        .original-container {
+            background: #F3F4F6;
+        }
+
+        .silhouette-container {
+            background: 
+                linear-gradient(45deg, #ccc 25%, transparent 25%),
+                linear-gradient(-45deg, #ccc 25%, transparent 25%),
+                linear-gradient(45deg, transparent 75%, #ccc 75%),
+                linear-gradient(-45deg, transparent 75%, #ccc 75%);
+            background-size: 20px 20px;
+            background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+            padding: 20px;
+            border-radius: 12px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+        }
+
+        .spinner {
+            border: 4px solid #F3F4F6;
+            border-top: 4px solid #5C6BFF;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .status-message {
+            background: #EEF2FF;
+            padding: 15px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .status-message.show {
+            display: block;
+        }
+
+        .status-message.success {
+            background: #ECFDF5;
+            color: #065F46;
+        }
+
+        .status-message.error {
+            background: #FEE2E2;
+            color: #991B1B;
+        }
+
+        .download-btn {
+            width: 100%;
+            padding: 12px;
+            background: #10B981;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .download-btn:hover {
+            background: #059669;
+        }
+
+        .info-box {
+            background: #FEF3C7;
+            padding: 15px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            border-left: 4px solid #F59E0B;
+        }
+
+        .info-box strong {
+            color: #92400E;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>🎨 배경 제거 테스트</h1>
+            <p class="subtitle">실제 구매한 옷 사진에서 배경을 자동으로 제거합니다</p>
+        </div>
+
+        <!-- Info Box -->
+        <div class="info-box">
+            <strong>💡 사용 방법:</strong> 쇼핑몰에서 구매한 상품 이미지 URL을 입력하거나, 
+            아래 샘플 이미지를 클릭하세요. rembg AI가 자동으로 배경을 제거합니다!
+        </div>
+
+        <!-- Input Section -->
+        <div class="input-section">
+            <div class="input-group">
+                <label for="imageUrl">상품 이미지 URL 입력</label>
+                <input 
+                    type="url" 
+                    id="imageUrl" 
+                    placeholder="https://example.com/product-image.jpg"
+                    value="https://images.unsplash.com/photo-1596755094514-f87e34085b2c?w=800&fit=crop"
+                />
+            </div>
+
+            <div class="input-group">
+                <label>또는 샘플 이미지 선택</label>
+                <div class="sample-images">
+                    <div class="sample-card" onclick="selectSample('https://images.unsplash.com/photo-1596755094514-f87e34085b2c?w=800&fit=crop')">
+                        <img src="https://images.unsplash.com/photo-1596755094514-f87e34085b2c?w=200&fit=crop" alt="White Shirt">
+                        <div class="label">화이트 셔츠</div>
+                    </div>
+                    <div class="sample-card" onclick="selectSample('https://images.unsplash.com/photo-1542272604-787c3835535d?w=800&fit=crop')">
+                        <img src="https://images.unsplash.com/photo-1542272604-787c3835535d?w=200&fit=crop" alt="Jeans">
+                        <div class="label">블랙 진</div>
+                    </div>
+                    <div class="sample-card" onclick="selectSample('https://images.unsplash.com/photo-1551028719-00167b16eac5?w=800&fit=crop')">
+                        <img src="https://images.unsplash.com/photo-1551028719-00167b16eac5?w=200&fit=crop" alt="Leather Jacket">
+                        <div class="label">가죽 자켓</div>
+                    </div>
+                    <div class="sample-card" onclick="selectSample('https://images.unsplash.com/photo-1576566588028-4147f3842f27?w=800&fit=crop')">
+                        <img src="https://images.unsplash.com/photo-1576566588028-4147f3842f27?w=200&fit=crop" alt="Sneakers">
+                        <div class="label">운동화</div>
+                    </div>
+                </div>
+            </div>
+
+            <button class="process-btn" onclick="processImage()">
+                🎨 배경 제거 시작
+            </button>
+
+            <div id="statusMessage" class="status-message"></div>
+        </div>
+
+        <!-- Results Section -->
+        <div id="results" class="results-section" style="display: none;">
+            <div class="result-card">
+                <h2>📷 원본 이미지</h2>
+                <div class="original-container">
+                    <img id="originalImage" class="result-image" alt="Original">
+                </div>
+            </div>
+
+            <div class="result-card">
+                <h2>✨ 배경 제거 결과</h2>
+                <div class="silhouette-container">
+                    <img id="silhouetteImage" class="result-image" alt="Silhouette">
+                </div>
+                <button class="download-btn" onclick="downloadImage()">
+                    💾 PNG 다운로드
+                </button>
+            </div>
+        </div>
+
+        <!-- Loading -->
+        <div id="loading" class="result-card loading" style="display: none;">
+            <div class="spinner"></div>
+            <p>AI가 배경을 제거하고 있습니다...</p>
+            <p style="font-size: 14px; color: #6B7280; margin-top: 10px;">
+                처음 실행 시 AI 모델 다운로드로 인해 시간이 걸릴 수 있습니다 (약 30초)
+            </p>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'https://8000-ie9wpiu3cp58a236iuzwi-82b888ba.sandbox.novita.ai';
+        let silhouetteDataUrl = '';
+
+        function selectSample(url) {
+            document.getElementById('imageUrl').value = url;
+            showStatus('샘플 이미지가 선택되었습니다!', 'success');
+        }
+
+        function showStatus(message, type = 'info') {
+            const statusEl = document.getElementById('statusMessage');
+            statusEl.textContent = message;
+            statusEl.className = `status-message show ${type}`;
+            setTimeout(() => {
+                statusEl.classList.remove('show');
+            }, 5000);
+        }
+
+        async function processImage() {
+            const imageUrl = document.getElementById('imageUrl').value;
+            
+            if (!imageUrl) {
+                showStatus('이미지 URL을 입력해주세요!', 'error');
+                return;
+            }
+
+            // Show loading
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('results').style.display = 'none';
+            showStatus('배경 제거 중...', 'info');
+
+            try {
+                const response = await fetch(`${API_URL}/api/remove-background`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        image_url: imageUrl
+                    })
+                });
+
+                const result = await response.json();
+
+                if (!result.success) {
+                    throw new Error(result.error || 'Unknown error');
+                }
+
+                // Display results
+                document.getElementById('originalImage').src = imageUrl;
+                document.getElementById('silhouetteImage').src = result.silhouette_url;
+                silhouetteDataUrl = result.silhouette_url;
+
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('results').style.display = 'grid';
+                showStatus('✅ 배경 제거 완료!', 'success');
+
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('loading').style.display = 'none';
+                showStatus(`❌ 오류: ${error.message}`, 'error');
+            }
+        }
+
+        function downloadImage() {
+            if (!silhouetteDataUrl) {
+                showStatus('다운로드할 이미지가 없습니다!', 'error');
+                return;
+            }
+
+            const link = document.createElement('a');
+            link.href = silhouetteDataUrl;
+            link.download = `clothing-silhouette-${Date.now()}.png`;
+            link.click();
+
+            showStatus('PNG 파일이 다운로드되었습니다!', 'success');
+        }
+
+        // Test API connection on load
+        window.addEventListener('load', async () => {
+            try {
+                const response = await fetch(`${API_URL}/health`);
+                const data = await response.json();
+                if (data.status === 'healthy') {
+                    showStatus('✅ Python Worker API 연결됨', 'success');
+                }
+            } catch (error) {
+                showStatus('⚠️ API 연결 확인 중... 잠시 후 다시 시도하세요', 'error');
+            }
+        });
+    </script>
+</body>
+</html>
